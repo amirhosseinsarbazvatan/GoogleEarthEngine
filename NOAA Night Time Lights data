@@ -1,0 +1,29 @@
+// First need to import your table
+
+Map.centerObject(table);
+
+// function --> Method of display
+function createTimeBand(img) {
+  var year = ee.Date(img.get('system:time_start')).get('year').subtract(1991);
+  return ee.Image(year).byte().addBands(img);
+}
+
+// Import NightTimeLights data for NOAA
+var collection = ee.ImageCollection('NOAA/DMSP-OLS/NIGHTTIME_LIGHTS')
+.filterBounds(table)
+.select('avg_vis')
+.map(createTimeBand)
+
+// Clipping for data with function
+var clipImageCollection = function(collection, table){
+
+  return collection.map(function(image){return ee.Image(image).clip(table)})
+}
+// Use function for clipping data
+var c = clipImageCollection(collection, table);
+
+
+Map.addLayer(
+    c.reduce(ee.Reducer.linearFit()),
+    {min: 0, max: [0.18, 20, -0.18], bands: ['scale', 'offset', 'scale']},
+    'stable lights trend');
