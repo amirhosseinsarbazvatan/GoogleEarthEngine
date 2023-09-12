@@ -1,0 +1,51 @@
+// First need to import your table
+
+Map.centerObject(table);
+
+// Load and display an NDVI image.
+var ndvi = ee.ImageCollection('LANDSAT/LC8_L1T_8DAY_NDVI')
+    .filterDate('2014-01-01', '2015-01-01');
+    
+
+// Clipping for data with function
+var clipImageCollection = function(ndvi, table){
+
+  return ndvi.map(function(image){return ee.Image(image).clip(table)})
+}
+// Use function for clipping data
+var ndvi = clipImageCollection(ndvi, table);    
+
+    
+    
+var vis = {min: 0, max: 1, palette: ['99c199', '006400']};
+Map.addLayer(ndvi.median(), vis, 'NDVI');
+
+// Configure the map.
+
+Map.style().set('cursor', 'crosshair');
+
+// Create a panel and add it to the map.
+var inspector = ui.Panel([ui.Label('Click to get mean NDVI')]);
+Map.add(inspector);
+
+Map.onClick(function(coords) {
+  // Show the loading label.
+  inspector.widgets().set(0, ui.Label({
+    value: 'Loading...',
+    style: {color: 'gray'}
+  }));
+
+  // Determine the mean NDVI, a long-running server operation.
+  var point = ee.Geometry.Point(coords.lon, coords.lat);
+  var meanNdvi = ndvi.reduce('mean');
+  var sample = meanNdvi.sample(point, 30);
+  var computedValue = sample.first().get('NDVI_mean');
+
+  // Request the value from the server.
+  computedValue.evaluate(function(result) {
+    // When the server returns the value, show it.
+    inspector.widgets().set(0, ui.Label({
+      value: 'Mean NDVI: ' + result.toFixed(2),
+    }));
+  });
+});
